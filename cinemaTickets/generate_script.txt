@@ -1,0 +1,229 @@
+truncate table genres,movies,movies_genres,screening_rooms,screenings,seats,customers,orders,ticket_types,discount_coupons,tickets;
+
+
+---- pomocne tabulky na generovanie dat
+
+-- first names
+
+drop table if exists first_names cascade;
+create table first_names
+(
+    first_name varchar
+);
+
+insert into first_names (first_name)
+values	('Alcott'), ('Alder'), ('Aldrich'), ('Pagination'), ('Alfred'),
+	('Allard'), ('Allston'), ('Wilson'), ('Thomas'), ('Eartha'),
+	('John'), ('Alton'), ('Alvin'), ('Corliss'), ('Courtney'),
+	('Demelza'), ('Walter'), ('James'), ('Jack'), ('Ethel'),
+	('Gabriel'), ('Harrison'), ('Cody'), ('Farrah'), ('Fern'),
+	('Michael'), ('Jim'), ('Joe'), ('Fiona'), ('Godiva'),
+	('Edward'), ('Golda'), ('Roger'), ('Rafael'), ('Harrison'),
+	('Harmony'), ('Hazel'), ('Harry'), ('Hedwig'), ('Hertha'),
+	('Holly'), ('Susan'), ('Peter'), ('Indiana'), ('Louis'),('Tobias'),
+	('George'), ('Rupert'), ('Jesse'), ('Sherlock'), ('Daniel'),('Dwight');
+
+-- last names
+
+drop table if exists last_names cascade;
+create table last_names
+(
+    last_name varchar
+);
+
+insert into last_names (last_name)
+values	('Schrute'), ('Halpert'), ('Berkeley'), ('Jones'), ('Freeman'),
+	('Potter'), ('Downey'), ('Brock'), ('White'), ('Roberts'),
+	('Chubb'), ('Larsson'), ('Cumberbatch'), ('Reeves'), ('Hiddleston'),
+	('Portman'), ('Dennings'), ('Watson'), ('Hopkins'), ('Hemsworth'),
+	('Gates'), ('Jobs'), ('Mars'), ('Hetfield'), ('Ulrich'),
+	('Trujillo'), ('Hammet'), ('Newsted'), ('Jackman'), ('Klein'),
+	('Cooper'), ('Disney'), ('Dodson'), ('Doge'), ('Ford'),
+	('Fern'), ('Fick'), ('Gallop'), ('Game'), ('Goodman'),
+	('Schrader'), ('Toshiba'), ('Mustaine'), ('Forge'), ('Osbourne'),
+	('Brown'), ('Rowling'), ('Tolkien'), ('Doyle'), ('Sapkowski');
+
+create or replace function random_first_name() returns varchar language sql as
+$$
+select first_name from first_names tablesample system_rows(10) order by random() limit 1
+$$;
+
+create or replace function random_last_name() returns varchar language sql as
+$$
+select last_name from last_names tablesample system_rows(10) order by random() limit 1
+$$;
+
+
+insert into genres(name)
+select 'zaner' || id
+from generate_series(1,5) as seq(id);
+
+
+insert into movies(name,length,year_of_release)
+select 'meno_filmu' || id,
+time '1:00:00' + floor(random() * 60*60+1) * time ' 00:00:01',
+floor(2000 + random() * 20)
+from generate_series(1,10) as seq(id);
+
+
+insert into movies_genres(movie_id,genre_id)
+select m.id, g.id
+from movies as m cross join genres g
+where random() > 0.4;
+
+
+insert into screening_rooms(number_of_rows, row_length)
+SELECT floor(5 + random() * 5),
+floor(5 + random() * 5)
+from generate_series(1,9) as seq(id);
+
+
+insert into screenings(start, movie_id,screening_room_id)
+SELECT 
+CURRENT_timestamp - INTERVAL '6 months' + id * interval '2 hours',
+(select id from movies where seq.id != -1 order by random() limit 1),
+(select id from screening_rooms where seq.id != -1 order by random() limit 1)
+from generate_series(1,5000) as seq(id);
+
+
+CREATE OR REPLACE FUNCTION numberOfSeats (sr_id INTEGER) RETURNS INTEGER AS 
+$$ 
+DECLARE
+   i INTEGER := 0 ; 
+BEGIN
+ SELECT number_of_rows * row_length  from screening_rooms where id = sr_id INTO i; 
+   
+   RETURN i ;
+END ; 
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION rowLength(sr_id INTEGER) RETURNS INTEGER AS 
+$$ 
+DECLARE
+   i INTEGER := 0 ; 
+BEGIN
+      SELECT row_length from screening_rooms where id = sr_id INTO i; 
+   
+      RETURN i ;
+END ; 
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION insertSeats() RETURNS void AS 
+$$ 
+DECLARE
+   srId INTEGER := 1; 
+   maxId integer := 0;
+   seatNumber INTEGER := 0;
+BEGIN
+      select max(id) from screening_rooms into maxId;
+    
+    while srId <= maxId LOOP 
+      seatNumber := 1;
+
+      while seatNumber <= numberOfSeats(srId) LOOP
+        insert into seats(row_number,seat_number,screening_room_id )
+        select floor(seatNumber / rowLength(srId))::integer +1, seatNumber, srId;
+        seatNumber := seatNumber + 1;
+      END LOOP;
+      
+      srId := srId + 1 ; 
+   END LOOP ;
+   
+  --RETURN i ;
+END ; 
+$$ LANGUAGE plpgsql;
+
+select insertSeats();
+
+
+INSERT into customers(first_name, last_name, age)
+select
+random_first_name(),
+random_last_name(),
+floor(14 + random() * 30)
+from generate_series(1,100) as seq(id);
+
+UPDATE customers set
+email = lower(first_name) || '.' || lower(last_name) || '@email.com';
+
+
+INSERT into orders(customer_id,created_at, is_confirmed, screening_id)
+SELECT
+(SELECT id from customers where seq.id != -1 order by random() limit 1),
+CURRENT_timestamp - INTERVAL '1 day' + random() * INTERVAL '1 week', --nech mam vzdy nejake platne
+case  when random() > 0.7 then false else true end,
+(select id from screenings where seq.id != -1 order by random() limit 1)
+from generate_series(1,500) as seq(id);
+
+
+insert into ticket_types(type,price)
+SELECT
+'typ' || id,
+floor(5 + random() * 5)::INTEGER
+from generate_series(1,4) as seq(id);
+
+
+INSERT into discount_coupons(is_valid,number,order_id,customer_id)   --neplatne
+select 
+false,
+floor(5000+ random() * 5000)::varchar,
+(select id from orders where customer_id = c.id limit 1),
+c.id
+from customers c 
+where EXISTS (SELECT null from orders where is_confirmed = true and customer_id = c.id)
+and random() > 0.5;
+
+
+INSERT into discount_coupons(is_valid,number,customer_id)    --platne
+select 
+true,
+floor(5000+ random() * 5000)::varchar,
+c.id
+from customers c 
+where random() < 0.3;
+
+
+CREATE OR REPLACE FUNCTION insertTickets(max integer) RETURNS void AS 
+$$ 
+DECLARE
+   i integer := 0;
+BEGIN
+    insert into tickets(order_id,customer_id,ticket_type_id, screening_id)  --1 listok z kazdej order, potom sa niektorym pridaju dalsie
+
+    SELECT o.id, o.customer_id,
+    (select id from ticket_types where o.id != -1 order by random() limit 1),
+    o.screening_id
+    from orders o;
+
+    while i <= max LOOP 
+      insert into tickets(order_id,customer_id,ticket_type_id, screening_id)
+      SELECT o.id, o.customer_id,
+      (select id from ticket_types where o.id != -1 order by random() limit 1),
+      o.screening_id
+      from orders o where random() > 0.5;
+      
+      i := i + 1;
+   END LOOP ;
+END ; 
+$$ LANGUAGE plpgsql;
+
+select insertTickets(2);
+
+--drop index myi;
+--create index myi on seats(screening_room_id);
+
+update tickets SET 
+seat_id = (select id from seats where 
+           seats.screening_room_id = (select screening_room_id from screenings where screenings.id = tickets.screening_id)
+            order by random() limit 1)
+WHERE (SELECT is_confirmed FROM orders o WHERE o.id = tickets.order_id) = true;
+
+
+-----zmazeme pomocne
+
+drop table first_names, last_names cascade;
+drop function random_first_name();
+drop function random_last_name();
+
