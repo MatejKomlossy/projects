@@ -1,0 +1,29 @@
+# nsaledujte kroky
+# nainstalujte si node.js https://nodejs.org/en/
+
+# server side - otvor si v terminal v pricinku ktorom mas projekt 
+cd server // dostanes sa do priecinku server
+npm run dev  // comand v terminale by mal spustit server na porte 5000
+http://localhost:5000/api // otvor si web(chrom, etc) localhost na porte 5000 mal by si dostat na stranke vypis "{"skuska":"ano fungujem"}"
+nehajte zapnuty terminal !!!
+
+# databaza 
+postgre sql download: https://www.enterprisedb.com/downloads/postgres-postgresql-downloads
+v subore db.js butete musiet zmenit "password" na heslo ktore mate vy a bude to treba vzdy skontrolovat kedze sa moze lisit od ostatnich
+vytvorte si novu db s menom "RedditForStudents" vsetko nehajte na deffoult nastaveniach
+v aplikacia pg4admin spustite Query Tool (kliknite na novo vytvorenu db "RedditForStudents" a hore v liste "Browser" najdete ikonu s Query Tool - je to prva) 
+prekopirujte si skripty na create_demo_script_pg4.sql a potom aj na generate_demo_script_pg4.sql. Potom dajte Execute (F5)
+ked kliknete na RedditForStudents potom na Schemas , public , Tables mali by ste vidiet data ak nie a query vam prebeha uspesne tak refresnite si Tables(pravim tlacidlom misi a refresh)
+
+# client side - otvor si v terminal v pricinku ktorom mas projekt 
+cd client // dostanes sa do priecinku client
+npm start // comand rozbehne react aplikaciju na porte http://localhost:3000/ (ak prikaz nefunguje, zavolajte najprv prikaz "npm install react-scripts --save")
+v subore client/package.json je nastavena proxy na vas lokalny node.js server ! cize to nemente aspon pokial niesme v produkciji odkazuje na server a port 5000 
+pouzivame tailwind css // https://tailwindcss.com/docs/guides/create-react-app
+odporucam VS-code tailwind extecndion
+odporucam VS-code Simple React Snippets alebo nieco obdobne
+odporucam VS-code HTML Snippets
+mozte sa pozriet na jednoduche componenty ktore su spojene uz spramo s pg4admin teda ak vsetko funguje mali by sa vam nacitat vami vygenerovani usery
+
+pokial vam aplikacia nefunguje aj po spraveni tichto krokov pouzite command
+npm install  v terminali v folderi */RedditForStudents/client

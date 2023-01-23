@@ -1,0 +1,115 @@
+drop table if exists genres cascade;
+CREATE TABLE genres
+(
+ id serial PRIMARY KEY,
+ name VARCHAR(20)
+ );
+  
+drop table if exists movies cascade;
+CREATE TABLE movies
+(
+    id serial PRIMARY key,
+    name VARCHAR(30),
+    length TIME,
+    year_of_release INTEGER
+ );
+    
+drop table if exists movies_genres cascade;
+CREATE TABLE movies_genres
+(
+  --id serial PRIMARY key,
+  movie_id integer REFERENCES movies(id) ON DELETE CASCADE ,
+  genre_id integer REFERENCES genres(id) ON DELETE CASCADE
+  );
+   
+drop table if exists screenings cascade;
+ CREATE table screenings
+(
+   id serial PRIMARY key,
+   start timestamp,
+   movie_id integer REFERENCES movies(id) ON DELETE CASCADE,
+   screening_room_id integer
+);
+   
+drop table if exists screening_rooms cascade;
+CREATE TABLE screening_rooms
+(
+  id serial PRIMARY key,
+  number_of_rows integer,
+  row_length INTEGER
+);
+  
+ALTER table screenings add FOREIGN key (screening_room_id) REFERENCES screening_rooms(id)  ON DELETE CASCADE;
+
+drop table if exists seats cascade;
+CREATE TABLE seats
+(
+  id serial PRIMARY key,
+  row_number integer,
+  seat_number integer,
+  screening_room_id integer REFERENCES screening_rooms(id) ON DELETE CASCADE
+ );
+  
+drop table if exists ticket_types cascade;
+ CREATE TABLE ticket_types
+(
+   id serial PRIMARY key,
+   type varchar(20),
+   price numeric
+);
+   
+drop table if exists customers cascade;
+CREATE TABLE customers
+(
+  id serial PRIMARY key,
+  first_name varchar(40),
+  last_name varchar(40),
+  email varchar(40) CHECK (email SIMILAR TO '[a-z0-9.]+@[a-z.0-9]+.[a-z]+'),
+  age integer
+ );
+  
+drop table if exists orders cascade;
+CREATE table orders
+(
+  id serial PRIMARY key,
+  created_at timestamp,
+  is_confirmed boolean,
+  screening_id integer REFERENCES screenings(id) ON DELETE CASCADE,
+  customer_id integer REFERENCES customers(id) ON DELETE CASCADE
+);
+  
+drop table if exists discount_coupons cascade;
+CREATE TABLE discount_coupons
+(
+  id serial PRIMARY key,
+  is_valid boolean,
+  number serial UNIQUE,
+  order_id integer REFERENCES orders(id) ON DELETE SET NULL UNIQUE ,
+ customer_id integer REFERENCES customers(id) ON DELETE CASCADE
+ );
+ 
+drop table if exists tickets cascade;
+CREATE table tickets
+(
+   id serial PRIMARY key,
+   screening_id integer REFERENCES screenings(id) ON DELETE CASCADE,
+   seat_id integer REFERENCES seats(id) ON DELETE CASCADE,
+   ticket_type_id integer REFERENCES ticket_types(id) ON DELETE CASCADE,
+   order_id integer REFERENCES orders(id) ON DELETE CASCADE,
+   customer_id integer REFERENCES customers(id) ON DELETE CASCADE,
+   sold_for numeric
+);
+
+----indexy--------------
+create index seats_sr_id on seats(screening_room_id);
+create index o_customer_id on orders(customer_id);
+
+create index mg_movie_id on movies_genres(movie_id);
+create index s_movie_id on screenings(movie_id);
+create index s_start on screenings(start);
+
+create index o_is_confirmed on orders(is_confirmed);
+create index t_order_id on tickets(order_id);
+
+create index o_screening_id on orders(screening_id);
+create index dc_order_id on discount_coupons(order_id);
